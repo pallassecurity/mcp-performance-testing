@@ -1,6 +1,8 @@
 .tokens
 .info
 
+node_modules/
+
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json

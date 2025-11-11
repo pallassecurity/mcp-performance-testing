@@ -1,0 +1,34 @@
+{
+  "name": "mcp-performance-testing",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "tsc && chmod 755 build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pallassecurity/mcp-performance-testing.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bin": {
+    "hello": "./build/index.js"
+  },
+  "bugs": {
+    "url": "https://github.com/pallassecurity/mcp-performance-testing/issues"
+  },
+  "homepage": "https://github.com/pallassecurity/mcp-performance-testing#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^5.9.3"
+  }
+}

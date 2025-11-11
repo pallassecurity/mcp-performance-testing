@@ -1,144 +1,120 @@
-# MCP Client Performance Testing
+# MCP Performance Testing
 
-The purpose of this repository is to test the performance of the MCP client in the Model Context Protocol official
-Python SDK. We have experienced some issues with performance, particularly the
-`mcp.client.streamable_http.streamablehttp_client` and `mcp.client.auth.OAuthClientProvider`. 
+The repo contains a test suite for some basic MCP servers.
 
-These issues are present when using the Notion remote MCP server with OAuth.
+## What is tested?
 
-# Test Results
+I am using four servers:
 
-## SDK Version 1.11.0 (latest without bug)
+- The official Node MCP SDK
+- The official Node MCP SDK - Dockerized
+- FastMCP SDK
+- FastMCP SDK - Dockerized
 
-```
-Starting tests with official Python MCP SDK version 1.11.0
+I have chosen these SDKs because I believe they are currently the most relevant in the ecosystem. FastMCP comes with many
+additional features over the official Python MCP SDK. I did not include a test with just the official Python SDK because 
+I have not seen new projects using it and it makes use of an older version of FastMCP itself for handling clients and servers.
+I am not aware of an equivalent, popular JS SDK. 
 
-Running simple client connection tests...
-Test results: 0.0614 0.0136 0.0120 0.0116 0.0106 (avg 0.0219s)
+**THE GOAL: Determine if any of these servers inherently presents a significant performance issue.**
 
-Running simple tool list tests...
-Test results: 0.0042 0.0041 0.0041 0.0041 0.0047 (avg 0.0042s)
+## Methodology
 
-Running simple tool call tests...
-Test results: 0.0080 0.0067 0.0068 0.0072 0.0246 (avg 0.0107s)
+These tests are all for STDIO transport. Although the rise of remote multi-user MCP servers are making STDIO less relevant,
+this transport still has the greatest potential for performance issues. 
 
-Starting callback server... done
-Running in memory OAuth provider construction tests...
-Test results: 0.0016 0.0001 0.0000 0.0000 0.0000 (avg 0.0004s)
+My basic Node server is found in `src/index.ts` and the equivalent FastMCP server is in `server.py`. I have attempted to
+create efficient and minimal accompanying Docker files.
 
-Running Notion client connection tests (OAuth)...
-Test results: 6.0797 0.9399 0.9005 0.8184 1.0262 (avg 1.9529s)
+The tools defined in these servers are extremely basic and not representative of real-world tools. Again, mostly trying
+to test the SDKs themselves. 
 
-Running Notion list tools tests...
-Test results: 0.3850 0.1293 0.1308 0.1496 0.1233 (avg 0.1836s)
+I am using FastMCP as the client in all benchmarks. I have set `keep_alive=False` in all transports so that no clients
+are ever reused. 
 
-Running Notion call tool tests...
-Test results: 0.4083 0.6162 0.8519 0.1946 0.6942 (avg 0.5530s)
+I have five tests that are meant to cover multiple MCP use cases:
 
-Stopping callback server... done
-Running GitHub client connection tests (PAT)...
-Test results: 0.5784 0.2820 0.2962 0.2857 0.3079 (avg 0.3500s)
+### Startup
 
-Running GitHub list tools tests...
-Test results: 0.5216 0.1121 0.1129 0.1286 0.1175 (avg 0.1986s)
+This test measures the amount of time to connect a client to the server. Note that I have separated the first result
+from each of the servers into a separate "cold start" chart.
 
-Running GitHub call tool tests...
-Test results: 0.2627 0.3505 0.2029 0.2623 0.3536 (avg 0.2864s)
+### Tool listing
 
-Finished!
-```
+Open a client and request a tool list N times. Client is reused. 
 
-## SDK Version 1.12.1 (earliest with bug)
+### Isolated tool call
 
-```
-Starting tests with official Python MCP SDK version 1.12.1
+Open a client and call a tool N times. Client is NOT reused. 
 
-Running simple client connection tests...
-Test results: 0.0593 0.0138 0.0120 0.0111 0.0105 (avg 0.0213s)
+### Sequential tool call
 
-Running simple tool list tests...
-Test results: 0.0039 0.0036 0.0034 0.0050 0.0033 (avg 0.0039s)
+Open a client and call a tool N times. Client is reused. 
 
-Running simple tool call tests...
-Test results: 0.0072 0.0058 0.0063 0.0063 0.0062 (avg 0.0064s)
+### API tool call
 
-Starting callback server... done
-Running in memory OAuth provider construction tests...
-Test results: 0.0009 0.0001 0.0000 0.0000 0.0001 (avg 0.0002s)
+Open a client and call a tool that makes an API request. Client is reused.
 
-Running Notion client connection tests (OAuth)...
-Test results: 6.3121 11.7071 11.6994 11.6963 11.7797 (avg 10.6389s)
+## Results
 
-Running Notion list tools tests...
-Test results: 10.6288 10.4737 10.3595 10.3114 10.5529 (avg 10.4652s)
+### Startup
 
-Running Notion call tool tests...
-Test results: 10.6931 11.1187 13.4962 11.9530 10.8899 (avg 11.6302s)
+![Cold startup bar chart](./results/cold_startup_plot.png)
 
-Stopping callback server... done
-Running GitHub client connection tests (PAT)...
-Test results: 0.4818 0.2940 0.2908 0.2831 0.2908 (avg 0.3281s)
+These cold startup times illustrate that Docker does incur a startup penalty. On other runs I have seen the jump for
+Dockerized Node much higher and FastMCP much lower. My takeaways from this test are:
 
-Running GitHub list tools tests...
-Test results: 0.5536 0.1563 0.1076 0.1102 0.1399 (avg 0.2135s)
+- FastMCP itself has a longer startup time than a very basic Node setup
+- Dockerizing your servers may take you from sub-second to multi-second time scales for startup
+- These results were for relatively optimal Docker files, you can make the startup time even worse with a suboptimal Docker file
+- It is not uncommon to see community made servers that contain significant startup application code that causes a slowdown
 
-Running GitHub call tool tests...
-Test results: 0.2749 0.2801 0.2645 0.3661 0.3368 (avg 0.3045s)
+![Warm startup kde plot](./results/warm_startup_plot.png)
 
-Finished!
-```
+Warm chart takeaways:
 
-## SDK Version 1.13.0 (latest)
+- Dockerizing made warm startup times less consistent for both SDKs
+- Dockerizing about tripled warm startup time for both SDKs
 
-```
-Starting tests with official Python MCP SDK version 1.13.0
+### MCP Operations
 
-Running simple client connection tests...
-Test results: 0.0596 0.0133 0.0116 0.0108 0.0104 (avg 0.0212s)
+![Tool list kde plot](./results/tool_list_plot.png)
 
-Running simple tool list tests...
-Test results: 0.0040 0.0035 0.0035 0.0053 0.0036 (avg 0.0040s)
+Tool list time takeaways:
 
-Running simple tool call tests...
-Test results: 0.0072 0.0060 0.0064 0.0058 0.0064 (avg 0.0064s)
+- There were some outliers in the non-Dockerized FastMCP server
+- In all cases tool list operation was extremely quick, no (significant) differences in performance shown
 
-Starting callback server... done
-Running in memory OAuth provider construction tests...
-Test results: 0.0021 0.0001 0.0000 0.0000 0.0000 (avg 0.0005s)
+![Isolated tool call kdp plot](./results/isolated_tool_call_plot.png)
 
-Running Notion client connection tests (OAuth)...
-Test results: 5.4729 11.4962 11.8369 11.6574 11.5804 (avg 10.4088s)
+This plot includes startup time and a basic tool call. This correlates with a use case where you are not reusing clients
+and creating one per tool call. Takeaways:
 
-Running Notion list tools tests...
-Test results: 10.5502 10.4495 10.4619 10.3530 10.4236 (avg 10.4476s)
+- This plot is nearly identical to the warm startup plot above. Calling a simple tool is dwarfed by startup time in all cases
 
-Running Notion call tool tests...
-Test results: 10.5274 10.8830 10.5276 11.6691 10.5476 (avg 10.8309s)
+![Sequential tool call kde plot](./results/sequential_tool_call_plot.png)
 
-Stopping callback server... done
-Running GitHub client connection tests (PAT)...
-Test results: 0.4458 0.2909 0.2915 0.2900 0.2837 (avg 0.3204s)
+This plot represents the situation where you are repeatedly calling tools with the same client. Takeaways:
 
-Running GitHub list tools tests...
-Test results: 0.5327 0.1121 0.1792 0.1069 0.1083 (avg 0.2079s)
+- This plot shows the stratification again of Node being slightly faster than FastMCP and Dockerization being a little slower. All of these basic tool call times are very quick though
 
-Running GitHub call tool tests...
-Test results: 0.2469 0.2270 0.2424 0.3186 0.2323 (avg 0.2534s)
+![API tool call kde plot](./results/api_tool_call_plot.png)
 
-Finished!
-```
+This test was meant to add in a simple API call to make a slightly more realistic tool call and also account for any
+differences in networking. This plot shows that for some reason the requests were practically instantaneous on Node,
+don't know if that's suspect, but that we see similar separation as from above. Takeaways:
 
-# Analysis
+- It appears that the separation between the Dockerized and non-Dockerized servers is a little more pronounced in this graph, implying that Docker is having a little bit of a negative impact on network performance, but not too significant
 
-These results show that in version 1.12.0 of the Python MCP SDK there was a regression in the performance of clients
-with some remote streamable HTTP based servers. *Note that version 1.12.1 is shown and not 1.12.0 due to an unrelated
-bug.*
+# Conclusion
 
-In my tests the Notion MCP server (the only one that shows the performance degradation) is also the only one that I am
-authenticating with OAuth. Because of this I profiled the `OAuthClientProvider` class and did not find any performance
-concerns. It appears that in the degraded tests the ~10 seconds spent per request are largely delays in communication
-with the read and write streams. I don't have the expertise to debug this further. 
+From the data I collected, you are not going to incur a significant *runtime* penalty for using any of these SDKs or
+Docker. 
 
-Another thing to note is that the latest version of MCP inspector (`@modelcontextprotocol/inspector@0.16.3`) does not
-exhibit this performance issue, corroborating the theory that this issue is with the streamable HTTP communication in
-the MCP Python SDK.
+However, the startup times indicate that Docker may nearly triple your *startup* time, often taking you from sub-second
+operations to multi-second. If you have a use case where you are frequently creating clients and you are performance
+sensitive, you may need to avoid Docker or invest time optimizing your images. I have encountered several situations
+with confusing performance penalties with Docker. 
+
+If you need to have reproducible runs and are sensitive to startup performance, `npx` and `uvx` may be good places to
+start looking at alternatives. 
