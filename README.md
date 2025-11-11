@@ -64,7 +64,7 @@ Open a client and call a tool that makes an API request. Client is reused.
 These cold startup times illustrate that Docker does incur a startup penalty. On other runs I have seen the jump for
 Dockerized Node much higher and FastMCP much lower. My takeaways from this test are:
 
-- FastMCP itself has a longer startup time than a very basic Node setup
+- FastMCP itself has a longer startup time than a very basic Node setup (expected with all the additional features)
 - Dockerizing your servers may take you from sub-second to multi-second time scales for startup
 - These results were for relatively optimal Docker files, you can make the startup time even worse with a suboptimal Docker file
 - It is not uncommon to see community made servers that contain significant startup application code that causes a slowdown
